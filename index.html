@@ -4,73 +4,117 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>URL Expander and Coordinates Extractor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1a365d;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            color: #4a5568;
+        }
+        input[type="text"] {
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        input[type="submit"] {
+            background-color: #1a365d;
+            color: #ffffff;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #2c5282;
+        }
+        #result {
+            margin-top: 30px;
+            background-color: #e2e8f0;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        #result h2 {
+            color: #1a365d;
+            margin-top: 0;
+        }
+        #result p {
+            margin: 10px 0;
+        }
+        #result strong {
+            color: #2c5282;
+        }
+    </style>
 </head>
 <body>
-    <div style="margin: 50px;">
-        <h1>Enter a Short URL</h1>
+    <div class="container">
+        <h1>URL Expander and Coordinates Extractor</h1>
         <form id="urlForm">
-            <label for="short_url">Short URL:</label><br><br>
-            <input type="text" id="short_url" name="short_url" style="width: 300px;"><br><br>
-            <input type="submit" value="Submit">
+            <label for="short_url">Enter a Short URL:</label>
+            <input type="text" id="short_url" name="short_url" placeholder="https://short.url/abc123" required>
+            <input type="submit" value="Expand and Extract">
         </form>
-        <div id="result" style="margin-top: 20px;"></div>
+        <div id="result"></div>
     </div>
 
     <script>
-        function getFinalUrl(shortUrl) {
-            return axios.get(shortUrl, { maxRedirects: 5 })
-                .then(response => response.request.responseURL);
-        }
-
-        function extractLatLngFromUrl(url) {
-            const patterns = [
-                /[@/](-?\d+\.\d+),(\+?-?\d+\.\d+)[,?]/,
-                /(-?\d+\.\d+),(-?\d+\.\d+)/
-            ];
-
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match) {
-                    return {
-                        lat: parseFloat(match[1]),
-                        lng: parseFloat(match[2])
-                    };
-                }
-            }
-
-            return null;
-        }
-
         document.getElementById('urlForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const shortUrl = document.getElementById('short_url').value;
             const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Processing...</p>';
 
-            if (!shortUrl) {
-                resultDiv.innerHTML = "<p>No URL provided</p>";
-                return;
-            }
+            fetch('/api/expand', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: shortUrl }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                let resultHtml = `<h2>Results</h2><p><strong>Final URL:</strong> ${data.finalUrl}</p>`;
 
-            getFinalUrl(shortUrl)
-                .then(finalUrl => {
-                    const coordinates = extractLatLngFromUrl(finalUrl);
-                    let resultHtml = `<h2>Results</h2><p><strong>Final URL:</strong> ${finalUrl}</p>`;
+                if (data.coordinates) {
+                    resultHtml += `
+                        <p><strong>Latitude:</strong> ${data.coordinates.lat}</p>
+                        <p><strong>Longitude:</strong> ${data.coordinates.lng}</p>
+                    `;
+                } else {
+                    resultHtml += "<p>No coordinates found in the URL.</p>";
+                }
 
-                    if (coordinates) {
-                        resultHtml += `
-                            <p><strong>Latitude:</strong> ${coordinates.lat}</p>
-                            <p><strong>Longitude:</strong> ${coordinates.lng}</p>
-                        `;
-                    } else {
-                        resultHtml += "<p>No coordinates found in the URL.</p>";
-                    }
-
-                    resultDiv.innerHTML = resultHtml;
-                })
-                .catch(error => {
-                    resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-                });
+                resultDiv.innerHTML = resultHtml;
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            });
         });
     </script>
 </body>
