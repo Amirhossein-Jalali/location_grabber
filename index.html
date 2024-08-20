@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>URL Expander and Coordinates Extractor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+</head>
+<body>
+    <div style="margin: 50px;">
+        <h1>Enter a Short URL</h1>
+        <form id="urlForm">
+            <label for="short_url">Short URL:</label><br><br>
+            <input type="text" id="short_url" name="short_url" style="width: 300px;"><br><br>
+            <input type="submit" value="Submit">
+        </form>
+        <div id="result" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function getFinalUrl(shortUrl) {
+            return axios.get(shortUrl, { maxRedirects: 5 })
+                .then(response => response.request.responseURL);
+        }
+
+        function extractLatLngFromUrl(url) {
+            const patterns = [
+                /[@/](-?\d+\.\d+),(\+?-?\d+\.\d+)[,?]/,
+                /(-?\d+\.\d+),(-?\d+\.\d+)/
+            ];
+
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) {
+                    return {
+                        lat: parseFloat(match[1]),
+                        lng: parseFloat(match[2])
+                    };
+                }
+            }
+
+            return null;
+        }
+
+        document.getElementById('urlForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const shortUrl = document.getElementById('short_url').value;
+            const resultDiv = document.getElementById('result');
+
+            if (!shortUrl) {
+                resultDiv.innerHTML = "<p>No URL provided</p>";
+                return;
+            }
+
+            getFinalUrl(shortUrl)
+                .then(finalUrl => {
+                    const coordinates = extractLatLngFromUrl(finalUrl);
+                    let resultHtml = `<h2>Results</h2><p><strong>Final URL:</strong> ${finalUrl}</p>`;
+
+                    if (coordinates) {
+                        resultHtml += `
+                            <p><strong>Latitude:</strong> ${coordinates.lat}</p>
+                            <p><strong>Longitude:</strong> ${coordinates.lng}</p>
+                        `;
+                    } else {
+                        resultHtml += "<p>No coordinates found in the URL.</p>";
+                    }
+
+                    resultDiv.innerHTML = resultHtml;
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                });
+        });
+    </script>
+</body>
+</html>
